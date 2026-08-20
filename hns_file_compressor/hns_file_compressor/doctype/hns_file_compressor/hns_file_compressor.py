@@ -31,14 +31,14 @@ class HNSFileCompressor(Document):
 			return response.content
 		return None
 
-	def upload_to_google_drive(self, file_name, file_content):
+	def upload_to_google_drive(self, file_name, file_content, folder_name=None):
 		try:
 			from frappe.integrations.doctype.google_drive.google_drive import get_google_drive_object
 			from googleapiclient.http import MediaIoBaseUpload
 			
 			google_drive, account = get_google_drive_object()
 			
-			folder_name = "Compressed"
+			folder_name = folder_name or self.folder_name or "Compressed"
 			query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
 			results = google_drive.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
 			folders = results.get('files', [])
@@ -99,7 +99,7 @@ class HNSFileCompressor(Document):
 
 	def before_save(self):
 		for row in self.hns_file_list:
-			if not (row.attachment and row.compressor_factor) or row.comprassed_file:
+			if not (row.attachment and row.compressor_factor) or row.is_compressed:
 				continue
 				
 			if row.file_type != "Image":
@@ -127,6 +127,7 @@ class HNSFileCompressor(Document):
 		if google_drive_url:
 			row.comprassed_file = google_drive_url
 			row.comprassed_file_size = f"{len(compressed_data) / 1024:.2f} KB"
+			row.is_compressed = 1
 		else:
 			frappe.msgprint(f"Failed to upload compressed image to Google Drive: {error}")
 
@@ -162,3 +163,4 @@ class HNSFileCompressor(Document):
 		
 		row.comprassed_file = new_file.file_url
 		row.comprassed_file_size = f"{len(compressed_data) / 1024:.2f} KB"
+		row.is_compressed = 1
