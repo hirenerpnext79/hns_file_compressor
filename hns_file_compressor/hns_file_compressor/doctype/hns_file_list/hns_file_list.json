@@ -1,0 +1,83 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-20 10:09:18.848006",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "file_type",
+  "file_url",
+  "attachment",
+  "original_file_size",
+  "compressor_factor",
+  "comprassed_file",
+  "comprassed_file_size"
+ ],
+ "fields": [
+  {
+   "fieldname": "file_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "File Type",
+   "options": "Image\nPdf",
+   "reqd": 1
+  },
+  {
+   "fieldname": "file_url",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "File Url"
+  },
+  {
+   "fieldname": "attachment",
+   "fieldtype": "Attach",
+   "in_list_view": 1,
+   "label": "Attachment"
+  },
+  {
+   "fieldname": "original_file_size",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Original File Size",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "compressor_factor",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Compressor Factor"
+  },
+  {
+   "fieldname": "comprassed_file",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Comprassed File",
+   "options": "URL",
+   "read_only": 1
+  },
+  {
+   "fieldname": "comprassed_file_size",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Comprassed File Size",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-20 10:45:49.450963",
+ "modified_by": "hirenerpnext79@gmail.com",
+ "module": "Hns File Compressor",
+ "name": "HNS File List",
+ "owner": "hirenerpnext79@gmail.com",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
