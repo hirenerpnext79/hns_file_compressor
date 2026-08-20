@@ -1,10 +1,12 @@
 {
  "actions": [],
  "allow_rename": 1,
+ "autoname": "naming_series:",
  "creation": "2026-08-20 10:08:20.249248",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "naming_series",
   "file_name",
   "folder_name",
   "is_file_combine",
@@ -12,13 +14,6 @@
   "hns_file_list"
  ],
  "fields": [
-  {
-   "fieldname": "file_name",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "File Name",
-   "reqd": 1
-  },
   {
    "default": "0",
    "fieldname": "is_file_combine",
@@ -44,15 +39,31 @@
    "in_list_view": 1,
    "label": "Folder Name",
    "reqd": 1
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Series",
+   "options": "FC-.YYYY.-.####",
+   "reqd": 1
+  },
+  {
+   "fieldname": "file_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "File Name",
+   "reqd": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-20 16:30:03.670988",
+ "modified": "2026-08-20 16:49:18.281445",
  "modified_by": "Administrator",
  "module": "Hns File Compressor",
  "name": "HNS File Compressor",
+ "naming_rule": "By \"Naming Series\" field",
  "owner": "hirenerpnext79@gmail.com",
  "permissions": [
   {
