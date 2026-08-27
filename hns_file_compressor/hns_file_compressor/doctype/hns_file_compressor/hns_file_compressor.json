@@ -8,12 +8,12 @@
  "field_order": [
   "naming_series",
   "file_name",
-  "upload_google_drive",
-  "folder_name",
   "column_break_ogho",
   "is_file_combine",
   "combine_type",
   "combine_file",
+  "upload_google_drive",
+  "folder_name",
   "section_break_molm",
   "hns_file_list"
  ],
@@ -43,7 +43,7 @@
    "fieldname": "folder_name",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Folder Name"
+   "label": "Google Drive Folder Name"
   },
   {
    "fieldname": "naming_series",
@@ -77,6 +77,7 @@
   },
   {
    "default": "0",
+   "depends_on": "eval:doc.is_file_combine",
    "fieldname": "upload_google_drive",
    "fieldtype": "Check",
    "in_list_view": 1,
@@ -86,7 +87,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-27 11:56:34.222802",
+ "modified": "2026-08-27 15:04:28.531801",
  "modified_by": "Administrator",
  "module": "Hns File Compressor",
  "name": "HNS File Compressor",

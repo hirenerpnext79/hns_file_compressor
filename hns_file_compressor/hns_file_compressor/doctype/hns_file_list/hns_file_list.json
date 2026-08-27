@@ -7,12 +7,15 @@
  "engine": "InnoDB",
  "field_order": [
   "file_type",
+  "is_compressed",
+  "upload_google_drive",
+  "folder_name",
+  "column_break_aunm",
   "attachment",
   "original_file_size",
   "compressor_factor",
   "compressed_file",
-  "compressed_file_size",
-  "is_compressed"
+  "compressed_file_size"
  ],
  "fields": [
   {
@@ -62,13 +65,30 @@
    "in_list_view": 1,
    "label": "Compressed File Size",
    "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "upload_google_drive",
+   "fieldtype": "Check",
+   "label": "Upload Google Drive"
+  },
+  {
+   "fieldname": "column_break_aunm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.upload_google_drive",
+   "fieldname": "folder_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Google Drive Folder Name"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-08-27 12:34:46.420248",
+ "modified": "2026-08-27 15:09:03.462013",
  "modified_by": "Administrator",
  "module": "Hns File Compressor",
  "name": "HNS File List",

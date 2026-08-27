@@ -23,131 +23,160 @@ from hns_file_compressor.utils import (
 class HNSFileCompressor(Document):
 	def before_save(self):
 		for row in self.hns_file_list:
-			if not (row.attachment and row.compressor_factor) or row.is_compressed:
+			if not (row.attachment and row.compressor_factor):
 				continue
 				
-			if row.file_type not in ["Image", "Pdf"]:
+			if row.is_compressed:
+				upload_gd = int(row.upload_google_drive or 0)
+				is_on_gdrive = "drive.google.com" in str(row.compressed_file or "")
+				if upload_gd and not is_on_gdrive:
+					self.upload_existing_local_to_gdrive(row)
+				elif not upload_gd and is_on_gdrive:
+					self.save_existing_gdrive_to_local(row)
 				continue
-
-			if "drive.google.com" in row.attachment:
-				self.process_google_drive_file(row)
-			else:
-				self.process_local_file(row)
+				
+			if row.file_type in ["Image", "Pdf"]:
+				self.process_file(row)
 				
 		if self.is_file_combine:
 			self.combine_files()
 
-	def process_google_drive_file(self, row):
-		original_data = download_google_drive_image(row.attachment)
+	def _get_file_data(self, file_url):
+		if not file_url: return None
+		if "drive.google.com" in file_url:
+			return download_google_drive_image(file_url)
+			
+		file_path = frappe.get_doc("File", {"file_url": file_url}).get_full_path()
+		if os.path.exists(file_path):
+			with open(file_path, "rb") as f:
+				return f.read()
+		return None
+
+	def _get_original_filename(self, file_url):
+		if not file_url or "drive.google.com" in file_url:
+			return f"file_{frappe.generate_hash(length=8)}"
+		try:
+			return frappe.get_value("File", {"file_url": file_url}, "file_name") or f"file_{frappe.generate_hash(length=8)}"
+		except Exception:
+			return f"file_{frappe.generate_hash(length=8)}"
+			
+	def _get_original_is_private(self, file_url):
+		if not file_url or "drive.google.com" in file_url:
+			return 0
+		return frappe.get_value("File", {"file_url": file_url}, "is_private") or 0
+
+	def process_file(self, row):
+		original_data = self._get_file_data(row.attachment)
 		if not original_data:
-			frappe.msgprint(f"Failed to download image from Google Drive: {row.attachment}")
-			return
+			return frappe.msgprint(f"Failed to fetch original file: {row.attachment}")
 		
-		original_size = len(original_data)
-		row.original_file_size = f"{original_size / 1024:.2f} KB"
+		row.original_file_size = f"{len(original_data) / 1024:.2f} KB"
+		orig_name = self._get_original_filename(row.attachment)
 		
 		if row.file_type == "Pdf":
-			compressed_data, ext = compress_pdf_bytes(original_data, row.compressor_factor)
-			new_file_name = f"compressed_{frappe.generate_hash(length=8)}.pdf"
-			mimetype = "application/pdf"
-		else:
-			compressed_data, ext = compress_image_bytes(original_data, row.compressor_factor)
-			new_file_name = f"compressed_{frappe.generate_hash(length=8)}.jpg"
-			mimetype = "image/jpeg"
-
-		folder = self.folder_name or "Compressed"
-		if getattr(self, "upload_google_drive", 0):
-			google_drive_url, error = upload_to_gdrive(new_file_name, compressed_data, folder, mimetype=mimetype)
-			if google_drive_url:
-				row.compressed_file = google_drive_url
-			else:
-				frappe.msgprint(f"Failed to upload compressed image to Google Drive: {error}")
-				row.compressed_file = save_frappe_file(new_file_name, compressed_data, self.doctype, self.name, 0)
-		else:
-			row.compressed_file = save_frappe_file(new_file_name, compressed_data, self.doctype, self.name, 0)
-			
-		row.compressed_file_size = f"{len(compressed_data) / 1024:.2f} KB"
-		row.is_compressed = 1
-
-	def process_local_file(self, row):
-		file_doc = frappe.get_doc("File", {"file_url": row.attachment})
-		original_path = file_doc.get_full_path()
-		
-		if not os.path.exists(original_path):
-			frappe.msgprint(f"Local file not found: {original_path}")
-			return
-
-		with open(original_path, "rb") as f:
-			original_data = f.read()
-
-		original_size = len(original_data)
-		row.original_file_size = f"{original_size / 1024:.2f} KB"
-			
-		if row.file_type == "Pdf":
-			compressed_data, ext = compress_pdf_bytes(original_data, row.compressor_factor)
-			file_name = f"compressed_{file_doc.file_name}"
-			if not file_name.lower().endswith(".pdf"):
-				file_name += ".pdf"
+			compressed_data, _ = compress_pdf_bytes(original_data, row.compressor_factor)
+			file_name = f"compressed_{orig_name}" if orig_name.endswith('.pdf') else f"compressed_{orig_name}.pdf"
 			mimetype = "application/pdf"
 		else:
 			compressed_data, img_format = compress_image_bytes(original_data, row.compressor_factor)
-			file_name = f"compressed_{file_doc.file_name}"
+			file_name = f"compressed_{orig_name}"
 			if not file_name.lower().endswith(".jpg") and img_format == "JPEG":
 				file_name += ".jpg"
 			mimetype = f"image/{img_format.lower()}"
-			
-		folder = self.folder_name or "Compressed"
-		if getattr(self, "upload_google_drive", 0):
-			google_drive_url, error = upload_to_gdrive(file_name, compressed_data, folder, mimetype=mimetype)
-			if google_drive_url:
-				row.compressed_file = google_drive_url
-			else:
-				frappe.msgprint(f"Failed to upload compressed file to Google Drive: {error}")
-				row.compressed_file = save_frappe_file(file_name, compressed_data, self.doctype, self.name, file_doc.is_private)
-		else:
-			row.compressed_file = save_frappe_file(file_name, compressed_data, self.doctype, self.name, file_doc.is_private)
-			
+
+		folder = row.folder_name or self.folder_name or "Compressed"
+		is_private = self._get_original_is_private(row.attachment)
+		
+		self._save_file_to_destination(row, file_name, compressed_data, folder, mimetype, is_private)
+		
 		row.compressed_file_size = f"{len(compressed_data) / 1024:.2f} KB"
 		row.is_compressed = 1
 
-	def combine_files(self):
-		if not self.hns_file_list:
-			return
+	def _save_file_to_destination(self, row, file_name, data, folder, mimetype, is_private):
+		if int(row.upload_google_drive or 0):
+			url, error = upload_to_gdrive(file_name, data, folder, mimetype=mimetype)
+			if url:
+				row.compressed_file = url
+				return
+			frappe.msgprint(f"Failed to upload to Google Drive: {error}")
+			
+		row.compressed_file = save_frappe_file(file_name, data, self.doctype, self.name, is_private)
 
+	def save_existing_gdrive_to_local(self, row):
+		try:
+			data = download_google_drive_image(row.compressed_file)
+			if not data:
+				return frappe.msgprint("Failed to download file from Google Drive to save locally.")
+				
+			file_name = f"compressed_{self._get_original_filename(row.attachment)}"
+			if row.file_type == "Pdf" and not file_name.lower().endswith(".pdf"): file_name += ".pdf"
+			elif row.file_type == "Image" and not file_name.lower().endswith(".jpg"): file_name += ".jpg"
+				
+			is_private = self._get_original_is_private(row.attachment)
+			row.compressed_file = save_frappe_file(file_name, data, self.doctype, self.name, is_private)
+		except Exception as e:
+			frappe.msgprint(f"Error saving Google Drive file to local: {str(e)}")
+
+	def upload_existing_local_to_gdrive(self, row):
+		try:
+			data = self._get_file_data(row.compressed_file)
+			if not data: return
+				
+			folder = row.folder_name or self.folder_name or "Compressed"
+			mimetype = "application/pdf" if row.file_type == "Pdf" else "image/jpeg"
+			file_name = self._get_original_filename(row.compressed_file)
+				
+			url, error = upload_to_gdrive(file_name, data, folder, mimetype=mimetype)
+			if url:
+				row.compressed_file = url
+			else:
+				frappe.msgprint(f"Failed to upload existing compressed file to Google Drive: {error}")
+		except Exception as e:
+			frappe.msgprint(f"Error uploading to Google Drive: {str(e)}")
+
+	def combine_files(self):
+		if not self.hns_file_list: return
+		
 		files_to_combine = []
 		for row in self.hns_file_list:
-			file_url = row.compressed_file if row.compressed_file else row.attachment
-			if not file_url:
-				continue
+			file_url = row.compressed_file or row.attachment
+			if not file_url: continue
 			
-			if "drive.google.com" in file_url:
-				continue
-			else:
-				file_doc = frappe.get_doc("File", {"file_url": file_url})
-				file_path = file_doc.get_full_path()
-				if os.path.exists(file_path):
-					with open(file_path, "rb") as f:
-						files_to_combine.append((file_doc.file_name, f.read(), file_url))
+			data = self._get_file_data(file_url)
+			if data:
+				name = self._get_original_filename(file_url)
+				if "drive.google.com" in file_url:
+					name = f"{name}.pdf" if row.file_type == "Pdf" else f"{name}.jpg"
+				files_to_combine.append((name, data, file_url))
 
-		if not files_to_combine:
-			return
+		if not files_to_combine: return
 
-		if self.combine_type == "Pdf":
-			self.create_combined_pdf(files_to_combine)
-		elif self.combine_type == "Zip":
-			self.create_combined_zip(files_to_combine)
-
-	def create_combined_pdf(self, files):
-		merger = PdfMerger()
+		file_name = self.file_name or f"Combined_{self.name}"
+		folder = self.folder_name or "Compressed"
 		
-		for file_name, file_data, file_url in files:
-			if file_name.lower().endswith('.pdf'):
-				merger.append(io.BytesIO(file_data))
+		if self.combine_type == "Pdf":
+			if not file_name.lower().endswith('.pdf'): file_name += ".pdf"
+			combined_data, mimetype = self._create_combined_pdf(files_to_combine), "application/pdf"
+		elif self.combine_type == "Zip":
+			if not file_name.lower().endswith('.zip'): file_name += ".zip"
+			combined_data, mimetype = self._create_combined_zip(files_to_combine), "application/zip"
+		else:
+			return
+			
+		if self.upload_google_drive:
+			url, error = upload_to_gdrive(file_name, combined_data, folder, mimetype=mimetype)
+			self.combine_file = url if url else save_frappe_file(file_name, combined_data, self.doctype, self.name, 0)
+		else:
+			self.combine_file = save_frappe_file(file_name, combined_data, self.doctype, self.name, 0)
+
+	def _create_combined_pdf(self, files):
+		merger = PdfMerger()
+		for name, data, _ in files:
+			if name.lower().endswith('.pdf'):
+				merger.append(io.BytesIO(data))
 			else:
 				try:
-					img = Image.open(io.BytesIO(file_data))
-					if img.mode != "RGB":
-						img = img.convert("RGB")
+					img = Image.open(io.BytesIO(data)).convert("RGB")
 					img_pdf = io.BytesIO()
 					img.save(img_pdf, format="PDF")
 					img_pdf.seek(0)
@@ -155,43 +184,14 @@ class HNSFileCompressor(Document):
 				except Exception as e:
 					frappe.log_error(title="Combine PDF Error", message=str(e))
 					
-		pdf_bytes = io.BytesIO()
-		merger.write(pdf_bytes)
+		out = io.BytesIO()
+		merger.write(out)
 		merger.close()
-		pdf_data = pdf_bytes.getvalue()
-		
-		file_name = self.file_name or f"Combined_{self.name}"
-		if not file_name.lower().endswith('.pdf'):
-			file_name += ".pdf"
-		
-		folder = self.folder_name or "Compressed"
-		if getattr(self, "upload_google_drive", 0):
-			google_drive_url, error = upload_to_gdrive(file_name, pdf_data, folder, mimetype="application/pdf")
-			if google_drive_url:
-				self.combine_file = google_drive_url
-			else:
-				self.combine_file = save_frappe_file(file_name, pdf_data, self.doctype, self.name, 0)
-		else:
-			self.combine_file = save_frappe_file(file_name, pdf_data, self.doctype, self.name, 0)
+		return out.getvalue()
 
-	def create_combined_zip(self, files):
-		zip_buffer = io.BytesIO()
-		with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-			for file_name, file_data, file_url in files:
-				zip_file.writestr(file_name, file_data)
-				
-		zip_data = zip_buffer.getvalue()
-		
-		file_name = self.file_name or f"Combined_{self.name}"
-		if not file_name.lower().endswith('.zip'):
-			file_name += ".zip"
-		
-		folder = self.folder_name or "Compressed"
-		if getattr(self, "upload_google_drive", 0):
-			google_drive_url, error = upload_to_gdrive(file_name, zip_data, folder, mimetype="application/zip")
-			if google_drive_url:
-				self.combine_file = google_drive_url
-			else:
-				self.combine_file = save_frappe_file(file_name, zip_data, self.doctype, self.name, 0)
-		else:
-			self.combine_file = save_frappe_file(file_name, zip_data, self.doctype, self.name, 0)
+	def _create_combined_zip(self, files):
+		out = io.BytesIO()
+		with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+			for name, data, _ in files:
+				z.writestr(name, data)
+		return out.getvalue()
