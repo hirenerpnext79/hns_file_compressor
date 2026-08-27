@@ -8,6 +8,7 @@
  "field_order": [
   "naming_series",
   "file_name",
+  "upload_google_drive",
   "folder_name",
   "column_break_ogho",
   "is_file_combine",
@@ -38,11 +39,11 @@
    "options": "HNS File List"
   },
   {
+   "depends_on": "eval:doc.upload_google_drive",
    "fieldname": "folder_name",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Folder Name",
-   "reqd": 1
+   "label": "Folder Name"
   },
   {
    "fieldname": "naming_series",
@@ -63,7 +64,8 @@
    "fieldname": "combine_file",
    "fieldtype": "Attach",
    "label": "Combine File",
-   "options": "Pdf\nZip"
+   "options": "Pdf\nZip",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_ogho",
@@ -72,12 +74,19 @@
   {
    "fieldname": "section_break_molm",
    "fieldtype": "Section Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "upload_google_drive",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Upload Google Drive"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-21 16:39:14.590600",
+ "modified": "2026-08-27 11:56:34.222802",
  "modified_by": "Administrator",
  "module": "Hns File Compressor",
  "name": "HNS File Compressor",
