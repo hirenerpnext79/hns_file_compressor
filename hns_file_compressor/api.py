@@ -14,6 +14,9 @@ def api_compress_file(file_url, file_type, compressor_factor=10, upload_google_d
 	"""
 	API to compress a file given its URL and type (Image or Pdf).
 	"""
+	if not file_url:
+		frappe.throw("file_url is required")
+
 	compressor_factor = frappe.utils.cint(compressor_factor)
 	upload_google_drive = frappe.utils.cint(upload_google_drive)
 
